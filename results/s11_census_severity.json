@@ -1,36 +1,90 @@
 {
+  "seeds": [
+    42,
+    43,
+    44,
+    45,
+    46
+  ],
+  "models": [
+    "logreg",
+    "rf",
+    "gb"
+  ],
   "baseline_official_split": {
     "train_n": 32561,
     "test_n": 16281,
     "auc": {
-      "logreg": 0.9038,
-      "rf": 0.9007
+      "logreg": {
+        "mean": 0.9038,
+        "std": 0.0
+      },
+      "rf": {
+        "mean": 0.901,
+        "std": 0.0002
+      },
+      "gb": {
+        "mean": 0.9198,
+        "std": 0.0
+      }
     }
   },
   "deduplication_effect": {
     "training_duplicates_removed": 24,
     "pct_of_training_file": 0.074,
     "auc_after_dedup": {
-      "logreg": 0.9039,
-      "rf": 0.9009
+      "logreg": {
+        "mean": 0.9039,
+        "std": 0.0
+      },
+      "rf": {
+        "mean": 0.9014,
+        "std": 0.0004
+      },
+      "gb": {
+        "mean": 0.9204,
+        "std": 0.0
+      }
     },
-    "delta_vs_baseline": {
+    "delta_mean_vs_baseline": {
       "logreg": 0.0001,
-      "rf": 0.0002
+      "rf": 0.0004,
+      "gb": 0.0006
     }
   },
   "discretization_effect": {
     "canonical_matched_split_auc": {
-      "logreg": 0.9042,
-      "rf": 0.9056
+      "logreg": {
+        "mean": 0.9045,
+        "std": 0.003
+      },
+      "rf": {
+        "mean": 0.9033,
+        "std": 0.0025
+      },
+      "gb": {
+        "mean": 0.9205,
+        "std": 0.0029
+      }
     },
     "mirror_discretized_auc": {
-      "logreg": 0.9061,
-      "rf": 0.8821
+      "logreg": {
+        "mean": 0.9061,
+        "std": 0.0025
+      },
+      "rf": {
+        "mean": 0.8813,
+        "std": 0.0021
+      },
+      "gb": {
+        "mean": 0.9115,
+        "std": 0.002
+      }
     },
-    "delta": {
-      "logreg": 0.0019,
-      "rf": -0.0235
+    "delta_mean": {
+      "logreg": 0.0016,
+      "rf": -0.022,
+      "gb": -0.009
     }
   },
   "label_bug_severity": {
