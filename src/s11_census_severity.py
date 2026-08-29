@@ -2,14 +2,20 @@
 Stage 10 actually distorts measured model performance: the effect of
 de-duplicating the canonical training data, the effect of Mirror 1's silent
 feature discretization, and whether a standard pipeline silently accepts the
-label-encoding divergence found in Stage 10."""
+label-encoding divergence found in Stage 10.
+
+Three models (logistic regression, Random Forest, Gradient Boosting) bound a
+wider part of the model-flexibility spectrum than a linear/tree-ensemble pair
+alone. Where a train/test partition is not fixed by the canonical archive's
+own official split, results are replicated across five seeds and reported as
+mean +/- standard deviation, rather than a single point estimate."""
 import os, sys
-import pandas as pd
+import numpy as np, pandas as pd
 sys.path.insert(0, os.path.dirname(__file__))
 from auditlib import save_json
 from sklearn.model_selection import train_test_split
 from sklearn.linear_model import LogisticRegression
-from sklearn.ensemble import RandomForestClassifier
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
 from sklearn.pipeline import Pipeline
 from sklearn.compose import ColumnTransformer
 from sklearn.preprocessing import OneHotEncoder, StandardScaler
@@ -25,6 +31,8 @@ COLS = ['age', 'workclass', 'fnlwgt', 'education', 'education-num', 'marital-sta
 NUM = ['age', 'fnlwgt', 'education-num', 'capital-gain', 'capital-loss', 'hours-per-week']
 CAT = ['workclass', 'education', 'marital-status', 'occupation', 'relationship',
        'race', 'sex', 'native-country']
+SEEDS = [42, 43, 44, 45, 46]
+MODELS = ['logreg', 'rf', 'gb']
 
 print("=" * 72); print(" STAGE 11: CENSUS-INCOME SEVERITY MEASUREMENT"); print("=" * 72)
 
@@ -36,33 +44,57 @@ def load_canonical():
     test = test.copy(); test['class'] = test['class'].str.rstrip('.')
     return train, test
 
-def pipeline(model):
+def _models(seed):
+    return [('logreg', LogisticRegression(max_iter=1000, random_state=seed)),
+            ('rf', RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1)),
+            ('gb', GradientBoostingClassifier(random_state=seed))]
+
+def pipeline(model, num_cols, cat_cols):
     pre = ColumnTransformer([
-        ('num', Pipeline([('impute', SimpleImputer(strategy='median')), ('scale', StandardScaler())]), NUM),
+        ('num', Pipeline([('impute', SimpleImputer(strategy='median')), ('scale', StandardScaler())]), num_cols),
         ('cat', Pipeline([('impute', SimpleImputer(strategy='most_frequent')),
-                           ('onehot', OneHotEncoder(handle_unknown='ignore'))]), CAT),
+                           ('onehot', OneHotEncoder(handle_unknown='ignore'))]), cat_cols),
     ])
     return Pipeline([('pre', pre), ('clf', model)])
 
-def fit_eval(Xtr, ytr, Xte, yte, seed=42):
+def fit_eval(Xtr, ytr, Xte, yte, seed, num_cols=NUM, cat_cols=CAT):
     out = {}
-    for name, model in [('logreg', LogisticRegression(max_iter=1000, random_state=seed)),
-                         ('rf', RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1))]:
-        pipe = pipeline(model)
+    for name, model in _models(seed):
+        pipe = pipeline(model, num_cols, cat_cols)
         pipe.fit(Xtr, ytr)
         p = pipe.predict_proba(Xte)[:, 1]
-        out[name] = round(float(roc_auc_score(yte, p)), 4)
+        out[name] = float(roc_auc_score(yte, p))
     return out
+
+def replicate_fixed_split(Xtr, ytr, Xte, yte, num_cols=NUM, cat_cols=CAT):
+    """Model-seed replication only; the train/test partition itself is fixed
+    (used where the canonical archive ships its own official split)."""
+    runs = [fit_eval(Xtr, ytr, Xte, yte, s, num_cols, cat_cols) for s in SEEDS]
+    return {m: (round(float(np.mean([r[m] for r in runs])), 4),
+                round(float(np.std([r[m] for r in runs])), 4)) for m in MODELS}
+
+def replicate_resplit(X, y, num_cols, cat_cols):
+    """Both the split and model seeds vary per replicate (used where no
+    official split exists, so the split itself is a source of variance)."""
+    runs = []
+    for s in SEEDS:
+        Xtr, Xte, ytr, yte = train_test_split(X, y, test_size=0.2, stratify=y, random_state=s)
+        runs.append(fit_eval(Xtr, ytr, Xte, yte, s, num_cols, cat_cols))
+    return {m: (round(float(np.mean([r[m] for r in runs])), 4),
+                round(float(np.std([r[m] for r in runs])), 4)) for m in MODELS}
+
+def fmt(md):
+    return {m: f"{v[0]:.4f} +/- {v[1]:.4f}" for m, v in md.items()}
 
 # 1. Baseline: canonical official train/test split, as correctly used ------
 train, test = load_canonical()
 ytr = (train['class'] == '>50K').astype(int)
 yte = (test['class'] == '>50K').astype(int)
 Xtr, Xte = train.drop(columns=['class']), test.drop(columns=['class'])
-baseline_auc = fit_eval(Xtr, ytr, Xte, yte)
+baseline_auc = replicate_fixed_split(Xtr, ytr, Xte, yte)
 print(f"\n--- 1. BASELINE: canonical adult.data -> adult.test (official split, as shipped) ---")
-print(f"  train n={len(train):,}  test n={len(test):,}")
-print(f"  AUC: {baseline_auc}")
+print(f"  train n={len(train):,}  test n={len(test):,}  (5-seed replication, model randomness only)")
+print(f"  AUC: {fmt(baseline_auc)}")
 
 # 2. De-duplication effect: drop exact-duplicate rows from the TRAINING file only
 full_train = pd.concat([Xtr, ytr.rename('target')], axis=1)
@@ -70,12 +102,12 @@ n_before = len(full_train)
 dedup_train = full_train.drop_duplicates()
 n_after = len(dedup_train)
 Xtr_dedup, ytr_dedup = dedup_train.drop(columns=['target']), dedup_train['target']
-dedup_auc = fit_eval(Xtr_dedup, ytr_dedup, Xte, yte)
+dedup_auc = replicate_fixed_split(Xtr_dedup, ytr_dedup, Xte, yte)
 print(f"\n--- 2. DE-DUPLICATION EFFECT: exact duplicates removed from training file only ---")
 print(f"  training duplicates removed: {n_before - n_after} ({100*(n_before-n_after)/n_before:.3f}% of adult.data)")
-print(f"  AUC after de-duplication: {dedup_auc}")
-print(f"  delta vs baseline: {{'logreg': {round(dedup_auc['logreg']-baseline_auc['logreg'],4)}, "
-      f"'rf': {round(dedup_auc['rf']-baseline_auc['rf'],4)}}}")
+print(f"  AUC after de-duplication: {fmt(dedup_auc)}")
+delta_dedup = {m: round(dedup_auc[m][0] - baseline_auc[m][0], 4) for m in MODELS}
+print(f"  delta (mean) vs baseline: {delta_dedup}")
 
 # 3. Discretized mirror (OpenML did=179): stratified 80/20, matched protocol -
 def read_arff_data(path):
@@ -112,41 +144,20 @@ for c in m1_num:
     m1_X[c] = pd.to_numeric(m1_X[c], errors='coerce')
 m1_X['fnlwgt'] = pd.to_numeric(m1_X['fnlwgt'], errors='coerce')
 
-Xtr_m1, Xte_m1, ytr_m1, yte_m1 = train_test_split(m1_X, m1_y, test_size=0.2, stratify=m1_y, random_state=42)
-
-def pipeline_generic(model, num_cols, cat_cols):
-    pre = ColumnTransformer([
-        ('num', Pipeline([('impute', SimpleImputer(strategy='median')), ('scale', StandardScaler())]), num_cols),
-        ('cat', Pipeline([('impute', SimpleImputer(strategy='most_frequent')),
-                           ('onehot', OneHotEncoder(handle_unknown='ignore'))]), cat_cols),
-    ])
-    return Pipeline([('pre', pre), ('clf', model)])
-
-def fit_eval_generic(Xtr, ytr, Xte, yte, num_cols, cat_cols, seed=42):
-    out = {}
-    for name, model in [('logreg', LogisticRegression(max_iter=1000, random_state=seed)),
-                         ('rf', RandomForestClassifier(n_estimators=300, random_state=seed, n_jobs=-1))]:
-        pipe = pipeline_generic(model, num_cols, cat_cols)
-        pipe.fit(Xtr, ytr)
-        p = pipe.predict_proba(Xte)[:, 1]
-        out[name] = round(float(roc_auc_score(yte, p)), 4)
-    return out
-
-mirror_auc = fit_eval_generic(Xtr_m1, ytr_m1, Xte_m1, yte_m1, m1_num, m1_cat)
+mirror_auc = replicate_resplit(m1_X, m1_y, m1_num, m1_cat)
 
 # Canonical, matched protocol (stratified 80/20 on the full corrected 48,842-row
 # corpus rather than the official split) for a fair like-for-like comparison
 full = pd.concat([train, test], ignore_index=True)
 y_full = (full['class'] == '>50K').astype(int)
 X_full = full.drop(columns=['class'])
-Xtr_c, Xte_c, ytr_c, yte_c = train_test_split(X_full, y_full, test_size=0.2, stratify=y_full, random_state=42)
-canonical_matched_auc = fit_eval(Xtr_c, ytr_c, Xte_c, yte_c)
+canonical_matched_auc = replicate_resplit(X_full, y_full, NUM, CAT)
 
-print(f"\n--- 3. DISCRETIZATION EFFECT: continuous features silently binned to 5 levels ---")
-print(f"  canonical (continuous features, matched 80/20 split): {canonical_matched_auc}")
-print(f"  OpenML mirror (discretized features, same split protocol): {mirror_auc}")
-print(f"  delta: {{'logreg': {round(mirror_auc['logreg']-canonical_matched_auc['logreg'],4)}, "
-      f"'rf': {round(mirror_auc['rf']-canonical_matched_auc['rf'],4)}}}")
+print(f"\n--- 3. DISCRETIZATION EFFECT: continuous features silently binned to 5 levels (5-seed, resplit each seed) ---")
+print(f"  canonical (continuous features): {fmt(canonical_matched_auc)}")
+print(f"  OpenML mirror (discretized features): {fmt(mirror_auc)}")
+delta_discretization = {m: round(mirror_auc[m][0] - canonical_matched_auc[m][0], 4) for m in MODELS}
+print(f"  delta (mean): {delta_discretization}")
 
 # 4. Label-bug severity: does a standard stratified split silently "succeed"
 #    on the corrupted 4-class labels, without raising any error? -------------
@@ -174,18 +185,23 @@ print(f"  interpretation: a standard scikit-learn call raises no error and retur
       f"  4-way class imbalance downstream, not as a crash.")
 
 # 5. Persist -------------------------------------------------------------
+def serialize(md):
+    return {m: {'mean': v[0], 'std': v[1]} for m, v in md.items()}
+
 out = {
-    'baseline_official_split': {'train_n': len(train), 'test_n': len(test), 'auc': baseline_auc},
+    'seeds': SEEDS,
+    'models': MODELS,
+    'baseline_official_split': {'train_n': len(train), 'test_n': len(test), 'auc': serialize(baseline_auc)},
     'deduplication_effect': {
         'training_duplicates_removed': int(n_before - n_after),
         'pct_of_training_file': round(100*(n_before-n_after)/n_before, 3),
-        'auc_after_dedup': dedup_auc,
-        'delta_vs_baseline': {k: round(dedup_auc[k] - baseline_auc[k], 4) for k in baseline_auc},
+        'auc_after_dedup': serialize(dedup_auc),
+        'delta_mean_vs_baseline': delta_dedup,
     },
     'discretization_effect': {
-        'canonical_matched_split_auc': canonical_matched_auc,
-        'mirror_discretized_auc': mirror_auc,
-        'delta': {k: round(mirror_auc[k] - canonical_matched_auc[k], 4) for k in baseline_auc},
+        'canonical_matched_split_auc': serialize(canonical_matched_auc),
+        'mirror_discretized_auc': serialize(mirror_auc),
+        'delta_mean': delta_discretization,
     },
     'label_bug_severity': {
         'naive_n_classes': int(naive_n_classes),
