@@ -1,0 +1,46 @@
+{
+  "generated": "2026-08-30",
+  "note": "Provenance manifest for the canonical UCI Adult / Census Income archive and its two OpenML redistributions audited in this repository.",
+  "canonical": {
+    "adult_census_income": {
+      "origin": "UCI ML Repository (Becker & Kohavi, 1996)",
+      "canonical_url": "https://archive.ics.uci.edu/dataset/2/adult",
+      "doi": "10.24432/C5XW20",
+      "license": "CC BY 4.0",
+      "retrieval_date": "2026-08-30",
+      "files": {
+        "adult.data": {
+          "sha256": "5b00264637dbfec36bdeaab5676b0b309ff9eb788d63554ca0a249491c86603d",
+          "bytes": 3974305,
+          "n_rows": 32561
+        },
+        "adult.test": {
+          "sha256": "a2a9044bc167a35b2361efbabec64e89d69ce82d9790d2980119aac5fd7e9c05",
+          "bytes": 2003153,
+          "n_rows": 16281
+        },
+        "adult.names": {
+          "sha256": "c248284c0b5de30c9e1958d6cdd168a34a654758b620e68f46aefa83fc0a576a",
+          "bytes": 5229
+        }
+      }
+    }
+  },
+  "mirrors": {
+    "openml_adult_v1_did179": {
+      "origin": "OpenML (dataset id 179, \"adult\" version 1)",
+      "note": "The version returned by sklearn.datasets.fetch_openml('adult') at default settings.",
+      "url": "https://api.openml.org/data/v1/download/3608/adult.arff",
+      "retrieval_date": "2026-08-30",
+      "n_rows": 48842,
+      "divergence_from_canonical": "Four continuous features (age, capital-gain, capital-loss, hours-per-week) are silently discretized to 5-level ordinal bins {0,1,2,3,4}; row count and class balance otherwise match the canonical corpus exactly."
+    },
+    "openml_adult_v3_did43898": {
+      "origin": "OpenML (dataset id 43898, \"adult\" version 3)",
+      "url": "https://api.openml.org/data/v1/download/22102806/adult.arff",
+      "retrieval_date": "2026-08-30",
+      "n_rows": 48790,
+      "divergence_from_canonical": "Verified row-for-row identical to the canonical corpus with its 52 exact duplicate rows removed (48,842 -> 48,790); six columns renamed (hyphen to underscore). The de-duplication is undocumented in the dataset's OpenML metadata."
+    }
+  }
+}

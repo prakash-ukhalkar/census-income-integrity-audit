@@ -1,0 +1,104 @@
+{
+  "canonical": {
+    "files": {
+      "adult.data": {
+        "sha256": "5b00264637dbfec36bdeaab5676b0b309ff9eb788d63554ca0a249491c86603d",
+        "n": 32561
+      },
+      "adult.test": {
+        "sha256": "a2a9044bc167a35b2361efbabec64e89d69ce82d9790d2980119aac5fd7e9c05",
+        "n": 16281
+      }
+    },
+    "spec_check": {
+      "train_n_matches_official": true,
+      "test_n_matches_official": true,
+      "train_n": 32561,
+      "test_n": 16281
+    },
+    "label_encoding_divergence": {
+      "train_label_values": [
+        "<=50K",
+        ">50K"
+      ],
+      "test_label_values_as_shipped": [
+        "<=50K.",
+        ">50K."
+      ],
+      "rows_affected_in_test_file": 16281,
+      "pct_of_test_file_affected": 100.0,
+      "naive_concat_n_classes": 4,
+      "corrected_concat_n_classes": 2
+    },
+    "combined_n": 48842,
+    "duplicate_audit": {
+      "n_raw": 48842,
+      "n_unique": 48790,
+      "exact_dup_rows": 52,
+      "exact_dup_pct": 0.106,
+      "repeat_count_distribution": {
+        "2": 46,
+        "3": 3
+      },
+      "concat_factor_signature": null,
+      "feature_dup_label_conflicts": 5,
+      "additional_near_dups_rounded": 0
+    },
+    "auxiliary_flags": {},
+    "identifier_like_columns": []
+  },
+  "mirror_openml_v1_did179": {
+    "n": 48842,
+    "n_matches_canonical": true,
+    "discretized_columns": [
+      "age",
+      "capitalgain",
+      "capitalloss",
+      "hoursperweek"
+    ],
+    "discretized_domains": {
+      "age": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "capitalgain": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "capitalloss": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+      ],
+      "hoursperweek": [
+        "0",
+        "1",
+        "2",
+        "3",
+        "4"
+      ]
+    }
+  },
+  "mirror_openml_v3_did43898": {
+    "n": 48790,
+    "row_count_divergence_from_canonical": 52,
+    "row_count_divergence_pct": 0.106,
+    "renamed_columns": [
+      "education_num",
+      "marital_status",
+      "capital_gain",
+      "capital_loss",
+      "hours_per_week",
+      "native_country"
+    ],
+    "is_exact_undocumented_deduplication_of_canonical": true
+  }
+}

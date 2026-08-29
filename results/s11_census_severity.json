@@ -1,0 +1,46 @@
+{
+  "baseline_official_split": {
+    "train_n": 32561,
+    "test_n": 16281,
+    "auc": {
+      "logreg": 0.9038,
+      "rf": 0.9007
+    }
+  },
+  "deduplication_effect": {
+    "training_duplicates_removed": 24,
+    "pct_of_training_file": 0.074,
+    "auc_after_dedup": {
+      "logreg": 0.9039,
+      "rf": 0.9009
+    },
+    "delta_vs_baseline": {
+      "logreg": 0.0001,
+      "rf": 0.0002
+    }
+  },
+  "discretization_effect": {
+    "canonical_matched_split_auc": {
+      "logreg": 0.9042,
+      "rf": 0.9056
+    },
+    "mirror_discretized_auc": {
+      "logreg": 0.9061,
+      "rf": 0.8821
+    },
+    "delta": {
+      "logreg": 0.0019,
+      "rf": -0.0235
+    }
+  },
+  "label_bug_severity": {
+    "naive_n_classes": 4,
+    "stratified_split_succeeds_silently": true,
+    "test_partition_class_counts": {
+      "<=50K": 4945,
+      "<=50K.": 2487,
+      ">50K": 1568,
+      ">50K.": 769
+    }
+  }
+}
